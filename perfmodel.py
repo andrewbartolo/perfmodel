@@ -23,25 +23,37 @@ CSV_HDR = ['rank', 'instrs', 'oInstrs', 'sends', 'rds', 'rdCpts', 'rdCptPct',
            'wrs', 'wrCpts', 'wrCptPct', 'cHits', 'cMisses', 'mReads', 'mWrites',
            'fullDumps', 'partDumps']
 
+################################################################################
+################################### Models #####################################
+################################################################################
+class BasicModel:
+    def __init__(s, csv):
+        procTimes = list(map(s.procTime, csv))
+        print(procTimes)
 
-def tCompute(proc):
-    return (proc['instrs'] / PARAMS['IPC']) / PARAMS['clockFreq']
+        s.tTime = np.max(procTimes) + s.tOverhead()
 
+    def runtime(s):
+        return s.tTime
 
-def tCacheAndMem(proc):
-    return proc['cHits'] * PARAMS['cHitLat'] +   \
-           proc['mReads'] * PARAMS['mReadLat'] + \
-           proc['mWrites'] * PARAMS['mWriteLat']
+    def tCompute(s, proc):
+        return (proc['instrs'] / PARAMS['IPC']) / PARAMS['clockFreq']
 
-def tCommunication(proc):
-    return (1 - PARAMS['sendOverlap']) * proc['sends'] * PARAMS['sendLat']
+    def tCacheAndMem(s, proc):
+        return proc['cHits'] * PARAMS['cHitLat'] +   \
+               proc['mReads'] * PARAMS['mReadLat'] + \
+               proc['mWrites'] * PARAMS['mWriteLat']
 
-def procTTime(proc):
-    return tCompute(proc) + tCacheAndMem(proc) + tCommunication(proc)
+    def tCommunication(s, proc):
+        return (1 - PARAMS['sendOverlap']) * proc['sends'] * PARAMS['sendLat']
 
+    def procTime(s, proc):
+        return s.tCompute(proc) + s.tCacheAndMem(proc) + s.tCommunication(proc)
 
-def tOverhead():
-    return 0.1
+    def tOverhead(s):
+        return 0.1
+
+################################################################################
 
 
 def parse(filename):
@@ -62,11 +74,7 @@ def parse(filename):
     print(csv)
     print('-'*40)
 
-    procTTimes = list(map(procTTime, csv))
-    print(procTTimes)
-
-    tTime = np.max(procTTimes) + tOverhead()
-
+    tTime = BasicModel(csv).runtime()
     print("Total execution time: %f" % tTime)
 
 
