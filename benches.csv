@@ -1,0 +1,6 @@
+name,nRanks,nNodes,probSize0,probSize1,system,runtime,simtime
+BFS,4,1,12,12,RSG-Opteron,0.55,0.53
+BFS,4,1,16,16,RSG-Opteron,5.94,6.35
+BFS,4,1,18,16,RSG-Opteron,23.86,24.33
+BFS,4,1,20,16,RSG-Opteron,104.11,90.44
+

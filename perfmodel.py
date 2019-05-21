@@ -3,9 +3,6 @@
 import numpy as np
 import sys, os
 
-# NOTE -- treats startup time as negligible, as only data from MPI processes
-#         are captured anyway
-
 
 # all in SI
 PARAMS = {'clockFreq':    2.8e9,
@@ -27,15 +24,6 @@ CSV_HDR = ['rank', 'instrs', 'oInstrs', 'sends', 'rds', 'rdCpts', 'rdCptPct',
 ################################### Models #####################################
 ################################################################################
 class BasicModel:
-    def __init__(s, csv):
-        procTimes = list(map(s.procTime, csv))
-        print(procTimes)
-
-        s.tTime = np.max(procTimes) + s.tOverhead()
-
-    def runtime(s):
-        return s.tTime
-
     def tCompute(s, proc):
         return (proc['instrs'] / PARAMS['IPC']) / PARAMS['clockFreq']
 
@@ -47,12 +35,35 @@ class BasicModel:
     def tCommunication(s, proc):
         return (1 - PARAMS['sendOverlap']) * proc['sends'] * PARAMS['sendLat']
 
-    def procTime(s, proc):
-        return s.tCompute(proc) + s.tCacheAndMem(proc) + s.tCommunication(proc)
-
     def tOverhead(s):
         return 0.1
 
+
+# Fake abstract base class
+class Model:
+    def __init__(s, modelType, csv):
+        s.m = modelType()
+
+        s.componentTimes = np.array(list(map(s.componentify, csv)))
+        processTimes = np.sum(s.componentTimes, axis=1)
+        processTimes += s.m.tOverhead() # add scalar overhead to each proc time
+
+        s.overallTime = np.max(processTimes)
+        s.maxProcessTimeIdx = np.argmax(processTimes)
+
+    def componentify(s, proc):
+        return (s.m.tCompute(proc),       # times[0]
+                s.m.tCacheAndMem(proc),   # times[1]
+                s.m.tCommunication(proc)) # times[2]
+
+    def breakdown(s):
+        times = s.componentTimes[s.maxProcessTimeIdx]
+        return {'compute': times[0] / s.overallTime,
+                'cacheAndMem': times[1] / s.overallTime,
+                'communication': times[2] / s.overallTime}
+
+    def runtime(s):
+        return s.overallTime
 ################################################################################
 
 
@@ -74,8 +85,14 @@ def parse(filename):
     print(csv)
     print('-'*40)
 
-    tTime = BasicModel(csv).runtime()
+    mod = Model(BasicModel, csv)
+    tTime = mod.runtime()
     print("Total execution time: %f" % tTime)
+    print("Breakdown:", end='')
+    for k, v in mod.breakdown().items():
+        # output component and the percentage it contributed
+        print(" [%s: %.2f%%]" % (k, v*100), end='')
+    print()
 
 
 
